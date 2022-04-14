@@ -30,31 +30,31 @@ def ListYears(dates):
     return years
 
 # Find the first (or last) month and year sampled
-def FindStartOfSampling(dates, dates_daily, Pdel, P, Qdel, Q, side='start'):
+def FindStartOfSampling(dates, dates_daily, Pdel, P, Qdel, Q, side=''):
     for i in range(len(dates)):
         if math.isnan(Pdel[i]) or math.isnan(Qdel[i]):
             continue
         else:
-            month = int(dates[i].strftime('%m'))
-            year = dates[i].strftime('%Y')
+            month_iso = int(dates[i].strftime('%m'))
+            year_iso = int(dates[i].strftime('%Y'))
             break
     for i in range(len(dates_daily)):
         if math.isnan(P[i]) or math.isnan(Q[i]):
             continue
         else:
             month_flux = int(dates_daily[i].strftime('%m'))
-            year_flux = dates_daily[i].strftime('%Y')
+            year_flux = int(dates_daily[i].strftime('%Y'))
             break
     if side == 'start':
-        if year_flux > year or year_flux == year and month_flux > month:
+        if year_flux > year_iso or year_flux == year_iso and month_flux > month_iso:
             return month_flux, year_flux
         else:
-            return month, year
+            return month_iso, year_iso
     elif side == 'end':
-        if year_flux < year or year_flux == year and month_flux < month:
+        if year_flux < year_iso or year_flux == year_iso and month_flux < month_iso:
             return month_flux, year_flux
         else:
-            return month, year
+            return month_iso, year_iso
     else:
         return print("Choose start or end of sampling period")
 
@@ -78,107 +78,45 @@ def ListUnusableDates(dates, first_month, first_year_index, last_month, last_yea
                 no_count_date.append(dates[i])
     return no_count_date
 
-# Identify which years need to be removed due to a lack of runoff data (will not work for missing precipitation data)
-def IdentifyMissingData(dates, precipitation, runoff, interval, years):
-    aux_list_precip = [[] for _ in dates]
-    count_list_precip = [[] for _ in dates]
-    no_data_dates_precip = [[] for _ in dates]
-    aux_list_runoff = [[] for _ in dates]
-    count_list_runoff = [[] for _ in dates]
-    no_data_dates_runoff = [[] for _ in dates]
-    remove_years = []
-    for i in range(len(dates)):
-        for d in range(len(dates[i])):
-            month_year = dates[i][d].strftime("%b '%y")
-            if math.isnan(precipitation[i][d]) or math.isnan(runoff[i][d]):
-                if math.isnan(precipitation[i][d]) and not math.isnan(runoff[i][d]):
-                    if month_year not in aux_list_precip[i]:
-                        aux_list_precip[i].append(month_year)
-                        no_data_dates_precip[i].append(dates[i][d])
-                        count_list_precip[i].append(interval[i][d])
-                    else:
-                        index = aux_list_precip[i].index(month_year)
-                        no_data_dates_precip[i].append(dates[i][d])
-                        count_list_precip[i][index] += interval[i][d]
-                elif math.isnan(precipitation[i][d]) and math.isnan(runoff[i][d]):
-                    if month_year not in aux_list_precip[i]:
-                        aux_list_precip[i].append(month_year)
-                        no_data_dates_precip[i].append(dates[i][d])
-                        count_list_precip[i].append(interval[i][d])
-                    else:
-                        index = aux_list_precip[i].index(month_year)
-                        no_data_dates_precip[i].append(dates[i][d])
-                        count_list_precip[i][index] += interval[i][d]
-                    if month_year not in aux_list_runoff[i]:
-                        aux_list_runoff[i].append(month_year)
-                        no_data_dates_runoff[i].append(dates[i][d])
-                        count_list_runoff[i].append(interval[i][d])
-                    else:
-                        index = aux_list_runoff[i].index(month_year)
-                        no_data_dates_runoff[i].append(dates[i][d])
-                        count_list_runoff[i][index] += interval[i][d]
-                elif not math.isnan(precipitation[i][d]) and math.isnan(runoff[i][d]):
-                    if month_year not in aux_list_runoff[i]:
-                        aux_list_runoff[i].append(month_year)
-                        no_data_dates_runoff[i].append(dates[i][d])
-                        count_list_runoff[i].append(interval[i][d])
-                    else:
-                        index = aux_list_runoff[i].index(month_year)
-                        no_data_dates_runoff[i].append(dates[i][d])
-                        count_list_runoff[i][index] += interval[i][d]
-    # The commented lines below print the number of days per year missing precipitation and runoff data as well as which months are missing data
-    #for i in range(len(aux_list_precip)):
-        #if aux_list_precip[i]:
-            #print(sum(count_list_precip[i]), 'days of precipitation values missing in', aux_list_precip[i])
-    for i in range(len(aux_list_runoff)):
-        if aux_list_runoff[i]:
-            #print(sum(count_list_runoff[i]), 'days of runoff values missing in', aux_list_runoff[i])
-            if sum(count_list_runoff[i]) > 5:
-                remove_years.append(years[i])
-    return remove_years
-
 # Remove the dates listed in ListUnusableDates and split the flux data into each hydrologic year
 def SplitFluxesByHydrologicYear(dates, years, no_count_date, precipitation, runoff, temperature):
-    date_daily_by_year = [[] for _ in years]
-    P_by_year = [[] for _ in years]
-    Q_by_year = [[] for _ in years]
-    Pcat = [[] for _ in years]
-    Qcat = [[] for _ in years]
-    Precip_cat = [[] for _ in years]
+    flux_data = [[] for _ in years]
+    for y in range(len(years)):
+         flux_data[y] = {'year': years[y], 'dates': [], 'P': [], 'Pcat': [], 'Q': [], 'Qcat': [], 'Tcat': []}
     for i in range(len(dates)):
         if dates[i] in no_count_date:
             continue
         month = int(dates[i].strftime('%m'))
         index = years.index(int(dates[i].strftime('%Y')))
         if month < 10:
-            date_daily_by_year[index - 1].append(dates[i])
-            P_by_year[index - 1].append(precipitation[i])
-            Q_by_year[index - 1].append(runoff[i])
+            flux_data[index - 1]['dates'].append(dates[i])
+            flux_data[index - 1]['P'].append(precipitation[i])
+            flux_data[index - 1]['Q'].append(runoff[i])
             if month < 5:
-                Pcat[index - 1].append("winter")
-                Qcat[index - 1].append("winter")
+                flux_data[index - 1]['Pcat'].append("winter")
+                flux_data[index - 1]['Qcat'].append("winter")
             else:
-                Pcat[index - 1].append("summer")
-                Qcat[index - 1].append("summer")
+                flux_data[index - 1]['Pcat'].append("summer")
+                flux_data[index - 1]['Qcat'].append("summer")
             if temperature[i] <= 0:
-                Precip_cat[index - 1].append('snow')
+                flux_data[index - 1]['Tcat'].append('snow')
             else:
-                Precip_cat[index - 1].append('rain')
+                flux_data[index - 1]['Tcat'].append('rain')
         else:
-            date_daily_by_year[index].append(dates[i])
-            P_by_year[index].append(precipitation[i])
-            Q_by_year[index].append(runoff[i])
-            Pcat[index].append("winter")
-            Qcat[index].append("winter")
+            flux_data[index]['dates'].append(dates[i])
+            flux_data[index]['P'].append(precipitation[i])
+            flux_data[index]['Q'].append(runoff[i])
+            flux_data[index]['Pcat'].append("winter")
+            flux_data[index]['Qcat'].append("winter")
             if temperature[i] <= 0:
-                Precip_cat[index].append('snow')
+                flux_data[index]['Tcat'].append('snow')
             else:
-                Precip_cat[index].append('rain')
-    return date_daily_by_year, P_by_year, Pcat, Q_by_year, Qcat, Precip_cat
+                flux_data[index]['Tcat'].append('rain')
+    return flux_data
 
 # Remove the dates listed above and split isotope data into each year
 # If the sampling period spans two seasons, add a date for the last day of the season to split up the fluxes by season
-def SplitIsotopesByHydrologicYear(dates, intervals, years, no_count_date, precipitation, runoff):
+def SplitIsotopesByHydrologicYear(dates, intervals, years, no_count_date, precipitation, runoff, first_year):
     date_by_year = [[] for _ in years]
     precip_d_year = [[] for _ in years]
     Pdelcat_with_nan = [[] for _ in years]
@@ -221,18 +159,20 @@ def SplitIsotopesByHydrologicYear(dates, intervals, years, no_count_date, precip
                     Qdelcat_with_nan[index - 1].append("summer")
         else:
             if month == 10 and days_in_month < interval:
-                date_by_year[index-1].append(dt(int(year), 9, 30))
                 date_by_year[index].append(dates[i])
-                precip_d_year[index - 1].append(precipitation[i])
                 precip_d_year[index].append(precipitation[i])
-                Pdelcat_with_nan[index - 1].append("summer")
                 Pdelcat_with_nan[index].append("winter")
-                runoff_d_year[index - 1].append(runoff[i])
                 runoff_d_year[index].append(runoff[i])
-                Qdelcat_with_nan[index - 1].append("summer")
                 Qdelcat_with_nan[index].append("winter")
-                interval_by_year[index - 1].append(interval - days_in_month)
                 interval_by_year[index].append(days_in_month)
+                if year == first_year:
+                    continue
+                date_by_year[index-1].append(dt(int(year), 9, 30))
+                precip_d_year[index - 1].append(precipitation[i])
+                Pdelcat_with_nan[index - 1].append("summer")
+                runoff_d_year[index - 1].append(runoff[i])
+                Qdelcat_with_nan[index - 1].append("summer")
+                interval_by_year[index - 1].append(interval - days_in_month)
             else:
                 date_by_year[index].append(dates[i])
                 precip_d_year[index].append(precipitation[i])

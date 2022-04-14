@@ -63,30 +63,28 @@ def DataChecks(Pcat, Pdelcat, Pdel, Pwt, P, Qcat, Qdelcat, Qdel, Qwt, Q):
     if len(Q) != len(Qcat):
         raise Exception("fatal error: Q and Qcat must have the same length")
 
-def LysimeterUndercatch(precipitation, precip_category, category='both'):
-    adjusted_precip = [[] for _ in precipitation]
+def LysimeterUndercatch(flux_data, category='both'):
     if category == 'both':
-        for y in range(len(precipitation)):
-            for d in range(len(precipitation[y])):
-                if precip_category[y][d] == 'snow':
-                    adjusted_precip[y].append(precipitation[y][d]*1.5)
-                if precip_category[y][d] == 'rain':
-                    adjusted_precip[y].append(precipitation[y][d]*1.15)
+        for y in range(len(flux_data)):
+            for d in range(len(flux_data[y]['P'])):
+                if flux_data[y]['Tcat'][d] == 'snow':
+                    flux_data[y]['P'][d] = (flux_data[y]['P'][d]*1.5)
+                if flux_data[y]['Tcat'][d] == 'rain':
+                    flux_data[y]['P'][d] = (flux_data[y]['P'][d]*1.15)
+
     if category == 'snow':
-        for y in range(len(precipitation)):
-            for d in range(len(precipitation[y])):
-                if precip_category[y][d] == 'snow':
-                    adjusted_precip[y].append(precipitation[y][d]*1.5)
-                else:
-                    adjusted_precip[y].append(precipitation[y][d])
+        for y in range(len(flux_data)):
+            for d in range(len(flux_data[y]['P'])):
+                if flux_data[y]['Tcat'][d] == 'snow':
+                    flux_data[y]['P'][d] = (flux_data[y]['P'][d]*1.5)
+
     if category == 'rain':
-        for y in range(len(precipitation)):
-            for d in range(len(precipitation[y])):
-                if precip_category[y][d] == 'rain':
-                    adjusted_precip[y].append(precipitation[y][d]*1.15)
-                else:
-                    adjusted_precip[y].append(precipitation[y][d])
-    return adjusted_precip
+        for y in range(len(flux_data)):
+            for d in range(len(flux_data[y]['P'])):
+                if flux_data[y]['Tcat'][d] == 'rain':
+                    flux_data[y]['P'][d] = (flux_data[y]['P'][d]*1.15)
+
+    return flux_data
 
 # Calculate isotope weighted means, total fluxes, and associated errors
 def CalcIsotopesAndFluxes(isotope, isotope_category, isotope_weight, flux, flux_category):
@@ -204,7 +202,7 @@ def FormatTables(f, f_se, eta, eta_se):
 
     return table
 
-def EndSplit(Pdel, Qdel, Pwt, Qwt, Pdelcat, Qdelcat, P, Q, Pcat, Qcat, f_ET_from_summer, f_ET_se, ET, ET_se, summer_P, summer_P_se):
+def EndSplit(Pdel, Qdel, Pwt, Qwt, Pdelcat, Qdelcat, P, Q, Pcat, Qcat):
 
     DataChecks(Pcat, Pdelcat, Pdel, Pwt, P, Qcat, Qdelcat, Qdel, Qwt, Q)
 
@@ -229,19 +227,25 @@ def EndSplit(Pdel, Qdel, Pwt, Qwt, Pdelcat, Qdelcat, P, Q, Pcat, Qcat, f_ET_from
     eta, eta_se = EndMemberSplitting(Qtot, Ptot, f, f_se, Qtot_se, Ptot_se)
 
     table = FormatTables(f, f_se, eta, eta_se)
-    f_ET_from_summer.append(table.iloc[3, 4])
-    f_ET_se.append(table.iloc[3, 6])
-    ET.append(Qtot[3])
-    ET_se.append(Qtot_se[3])
-    summer_P.append(Ptot[0])
-    summer_P_se.append(Ptot_se[0])
-   
-    return f_ET_from_summer, \
-           f_ET_se, \
-           ET, \
-           ET_se, \
-           summer_P, \
-           summer_P_se
+
+    f_ET_from_summer = table.iloc[3, 0]
+    f_ET_se = table.iloc[3, 2]
+    ET = Qtot[3]
+    ET_se = Qtot_se[3]
+    summer_P = Ptot[0]
+    summer_P_se = Ptot_se[0]
+    Qtot = Qtot[2]
+    Qdel_bar = Qdel_bar[2]
+    Pdel_s = Pdel_bar[0]
+    Pdel_w = Pdel_bar[1]
+    return [0, Qtot, Qdel_bar, AllP, summer_P, summer_P_se, Pdel_s, Pdel_w, f_ET_from_summer, f_ET_se, ET, ET_se, AllP_del]
+
+
+
+
+
+
+
 
 
 
