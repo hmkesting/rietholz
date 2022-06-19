@@ -1,219 +1,238 @@
-from sklearn.linear_model import LinearRegression
 import numpy as np
+import pandas as pd
 import math
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 import scipy as scipy
-import scipy.odr as odr
-from statsmodels.stats.outliers_influence import summary_table
-from statsmodels.sandbox.regression.predstd import wls_prediction_std
+from textwrap import wrap
 
-# Plot the amount of summer precipitation by the fraction of evapotranspiration from summer precipitation
-# Also print linear regression best fit equation and R squared value
-def PlotFraction(summer_P, summer_P_se, f_ET_from_summer, f_ET_se, method, catchment):
-    summer_P, f_ET_from_summer, f_ET_se = zip(*sorted(zip(summer_P, f_ET_from_summer, f_ET_se)))
-
-    # If the p-value of the slope of the weighted regression is lower than 0.1, we will plot it
-    # If not, we will only plot the Ordinary Least Squares regression
-
+# Calculate inverse error weighted regression. If the slope p-value > 0.1, return values to plot the line and the 95% CI
+def calculate_wls(x_unsorted, y_unsorted, y_err_unsorted):
+    x, y, y_err = zip(*sorted(zip(x_unsorted, y_unsorted, y_err_unsorted)))
     w = []
     plot_errors = []
-    for i in f_ET_se:
+    for i in y_err:
         w.append(1 / i ** 2)
         if i > 10:
             plot_errors.append(0)
         else:
             plot_errors.append(i)
 
-    X = sm.add_constant(summer_P)
-    res_wls = sm.WLS(f_ET_from_summer, X, weights=w).fit()
+    X = sm.add_constant(x)
+    res_wls = sm.WLS(y, X, weights=w).fit()
+    fitvals = res_wls.fittedvalues.tolist()
     slope_pval = res_wls.pvalues[1]
-
+    x_val_ci = range(450, 1050, 25)
     if slope_pval < 0.1:
-        fig, (ax1, ax2) = plt.subplots(1, 2)
-        plt.suptitle(str(method) + ", " + str(catchment) + " Rietholzbach Linear Regressions")
-        plt.sca(ax1)
-        plt.title('Ordinary Least Squares')
-        ax1.set(xlabel='Summer Precipitation (mm)', ylabel='Fraction of ET from Summer')
-        ax1.scatter(summer_P, f_ET_from_summer, marker='o', linestyle='None')
-        ax1.errorbar(summer_P, f_ET_from_summer, xerr=summer_P_se, yerr=plot_errors, marker='.', linestyle='None')
-
-        reg = sm.OLS(f_ET_from_summer, X).fit()
-        ax1.plot(summer_P, reg.fittedvalues)                  #params[1] * np.array(summer_P) + reg.params[0])
-        st, data, ss2 = summary_table(reg, alpha=0.025)
-        mean_ci_low, mean_ci_upp = data[:, 4:6].T
-        ax1.plot(summer_P, mean_ci_low)
-        ax1.plot(summer_P, mean_ci_upp)
-
-        plt.sca(ax2)
-        plt.title('Inverse Square Error Weighted')
-        ax2.set(xlabel='Summer Precipitation (mm)')
-        # ax2.set_ylim([0, 1])
-
         point_size = []
         for i in w:
             point_size.append(math.sqrt(i) * 10)
 
-        ax2.scatter(summer_P, f_ET_from_summer, point_size, marker='o', linestyle='None')
-        ax2.plot(summer_P, res_wls.fittedvalues)
         wtd_sum_x = []
         for i in range(len(w)):
-            wtd_sum_x.append(w[i]*summer_P[i])
+            wtd_sum_x.append(w[i]*x[i])
         wtd_mean_x = sum(wtd_sum_x)/sum(w)
+
         int_se, slope_se = res_wls.bse
         df = res_wls.df_resid
         t_crit = abs(scipy.stats.t.ppf(q=0.025, df=df))
-        x_val_ci = range(450, 1050, 25)
         ci_upp = [0] * len(x_val_ci)
         ci_low = [0] * len(x_val_ci)
         for i in range(len(x_val_ci)):
-            ci_upp[i] = res_wls.params[1] * x_val_ci[i] + res_wls.params[0] + t_crit * math.sqrt((abs(x_val_ci[i] - wtd_mean_x) * slope_se) ** 2 + int_se ** 2)
-            ci_low[i] = res_wls.params[1] * x_val_ci[i] + res_wls.params[0] - t_crit * math.sqrt((abs(x_val_ci[i] - wtd_mean_x) * slope_se) ** 2 + int_se ** 2)
-        ax2.plot(x_val_ci, ci_low, color='blue')
-        ax2.plot(x_val_ci, ci_upp, color='blue')
+            ci_upp[i] = res_wls.params[1] * x_val_ci[i] + res_wls.params[0] + t_crit * math.sqrt((abs(x_val_ci[i] -
+                                                                            wtd_mean_x) * slope_se) ** 2 + int_se ** 2)
+            ci_low[i] = res_wls.params[1] * x_val_ci[i] + res_wls.params[0] - t_crit * math.sqrt((abs(x_val_ci[i] -
+                                                                            wtd_mean_x) * slope_se) ** 2 + int_se ** 2)
     else:
-        plt.title(str(method) + ", " + str(catchment) + ' Ordinary Least Squares Linear Regression')
-        plt.xlabel('Summer Precipitation (mm)')
-        plt.ylabel('Fraction of ET from Summer')
-        plt.scatter(summer_P, f_ET_from_summer, marker='o', linestyle='None')
-        plt.errorbar(summer_P, f_ET_from_summer, xerr=summer_P_se, yerr=plot_errors, marker='.', linestyle='None')
+        [fitvals, ci_low, ci_upp] = [[], [], []]
+    return {'P_s':x, 'f':y, 'x_val_ci':x_val_ci, 'fitvals':fitvals,
+            'ci_low':ci_low, 'ci_upp':ci_upp}
 
-        reg = sm.OLS(f_ET_from_summer, X).fit()
-        plt.plot(summer_P, reg.fittedvalues)  # params[1] * np.array(summer_P) + reg.params[0])
-        st, data, ss2 = summary_table(reg, alpha=0.025)
-        mean_ci_low, mean_ci_upp = data[:, 4:6].T
-        plt.plot(summer_P, mean_ci_low)
-        plt.plot(summer_P, mean_ci_upp)
+# The folowing function corrects ET values by correcting annual Ptot for undercatch (ET_lys_wts - ET_lys_water_bal),
+# for years in which ET from lysimeter weights is known, and using the average undercatch otherwise
+def undercatch_correction(watershed, undercatch):
+    ptot = watershed['Ptot'].tolist()
+    ptot_adj = ptot.copy()
+    years = watershed['Year'].tolist()
+    undercatch_years = list(undercatch['Year'])
+    undercatch = undercatch['Undercatch (mm)']
 
-        summer_P, res_wls.fittedvalues, x_val_ci, ci_low, ci_upp = [[], [], [], [], []]
+    for i in range(len(years)):
+        if years[i] in undercatch_years:
+            ptot_adj[i] += undercatch[undercatch_years.index(years[i])]
+        else:
+            ptot_adj[i] += sum(undercatch)/len(undercatch)
+    watershed_adj = watershed.copy()
+    watershed_adj['Ptot'] = ptot_adj
+    return watershed_adj
+
+# Recalculate delta value of ET to recalculate the fraction of ET from summer precipitation
+def calculate_fractions(watershed, et=None):
+    p_s = watershed['P_s'].tolist()
+    ptot = watershed['Ptot'].tolist()
+    q = watershed['Q'].tolist()
+    years = watershed['Year'].tolist()
+    qdel = watershed['Qdel'].tolist()
+    pdel_s = watershed['Pdel_s'].tolist()
+    pdel_w = watershed['Pdel_w'].tolist()
+    allp_del = watershed['AllP_del'].tolist()
+    if et is None:
+        et = watershed['ET'].tolist()
+    else:
+        et = [0] * len(years)
+        for i in range(len(years)):
+            et[i] = ptot[i] - q[i]
+
+    et_del = [0]*len(years)
+    f_et = [0]*len(years)
+    f_et_se = [0]*len(years)
+    f_ps = [0]*len(years)
+    f_ps_se = [0]*len(years)
+    for i in range(len(years)):
+        et_del[i] = (allp_del[i] * ptot[i] - qdel[i] * q[i]) / et[i]
+        f_et[i] = (et_del[i]-pdel_w[i])/(pdel_s[i]-pdel_w[i])
+        f_et_se[i] = watershed['f_ET_se'][i] * f_et[i]/watershed['f_ET'][i]
+        f_ps[i] = f_et[i]*et[i]/p_s[i]
+        f_ps_se[i] = watershed['f_Ps_se'][i] * f_ps[i]/watershed['f_Ps'][i]
+    f_ET_ci = calculate_wls(p_s, f_et, f_et_se)
+    f_Ps_ci = calculate_wls(p_s, f_ps, f_ps_se)
+    return {'P_s': f_ET_ci['P_s'],
+            'f_ET': f_ET_ci['f'],
+            'f_Ps': f_Ps_ci['f'],
+            'x_val_ci': f_ET_ci['x_val_ci'],
+            'f_ET_fitvals': f_ET_ci['fitvals'],
+            'f_ET_ci_low': f_ET_ci['ci_low'],
+            'f_ET_ci_upp': f_ET_ci['ci_upp'],
+            'f_Ps_fitvals': f_Ps_ci['fitvals'],
+            'f_Ps_ci_low': f_Ps_ci['ci_low'],
+            'f_Ps_ci_upp': f_Ps_ci['ci_upp']}
+
+# Weighted Regression of Significant Slopes
+def plot_panels(ci_all, ci_upper, ci_lys, title):
+    fig, axs = plt.subplots(4, 3, figsize=(8.5, 10.5))
+    fig.suptitle('\n'.join(wrap('Inverse Error Weighted Regressions with Significant (p<0.1) Slopes ' + title, 67)), y=0.99, x=0.4)
+    axs[0, 0].set(ylabel=('\n'.join(wrap('Fraction of ET from Summer Precipitation (unitless)', 28))))
+    axs[1, 0].set(ylabel=('\n'.join(wrap('Fraction of ET from Summer Precipitation (unitless)', 28))))
+    axs[2, 0].set(ylabel=('\n'.join(wrap('Fraction of Summer Precipitation to ET (unitless)', 28))))
+    axs[3, 0].set(xlabel='Summer Precipitation (mm)', ylabel=('\n'.join(wrap('Fraction of Summer Precipitation to ET (unitless)', 28))))
+    axs[3, 1].set(xlabel='Summer Precipitation (mm)')
+    axs[3, 2].set(xlabel='Summer Precipitation (mm)')
+    axes = [axs[0, 0], axs[0, 1], axs[0,2], axs[1, 0], axs[1, 1], axs[1, 2]]
+    methods = ['No Lag', 'Lag 1', 'Lag 2', 'Mixed', 'Lag 1 Mean', 'Lag 2 Mean']
+    watersheds = [ci_all, ci_upper, ci_lys]
+    colors = ['blue', 'orange', 'green']
+    labels = ['All', 'Upper', 'Lysimeter']
+    for m in range(len(methods)):
+        for w in range(len(watersheds)):
+            if np.size(watersheds[w][methods[m]]['f_ET_fitvals']):
+                axes[m].plot(watersheds[w][methods[m]]['P_s'], watersheds[w][methods[m]]['f_ET_fitvals'], color=colors[w], linewidth=2,)
+                axes[m].plot(watersheds[w][methods[m]]['x_val_ci'], watersheds[w][methods[m]]['f_ET_ci_low'], color=colors[w], linewidth=0.75)
+                axes[m].plot(watersheds[w][methods[m]]['x_val_ci'], watersheds[w][methods[m]]['f_ET_ci_upp'], color=colors[w], linewidth=0.75)
+        axes[m].set_title(methods[m])
+    for m in range(len(methods)):
+        for w in range(len(watersheds)):
+            axes[m].scatter(watersheds[w][methods[m]]['P_s'], watersheds[w][methods[m]]['f_ET'], color=colors[w], marker='.', label=labels[w])
+            axes[m].set_ylim([-5, 5])
+
+    axes = axs[2, 0], axs[2, 1], axs[2, 2], axs[3, 0], axs[3, 1], axs[3, 2]
+    for m in range(len(methods)):
+        for w in range(len(watersheds)):
+            if np.size(watersheds[w][methods[m]]['f_Ps_fitvals']):
+                axes[m].plot(watersheds[w][methods[m]]['P_s'], watersheds[w][methods[m]]['f_Ps_fitvals'], color=colors[w], linewidth=2)
+                axes[m].plot(watersheds[w][methods[m]]['x_val_ci'], watersheds[w][methods[m]]['f_Ps_ci_low'], color=colors[w], linewidth=0.75)
+                axes[m].plot(watersheds[w][methods[m]]['x_val_ci'], watersheds[w][methods[m]]['f_Ps_ci_upp'], color=colors[w], linewidth=0.75)
+        axes[m].set_title(methods[m])
+    for m in range(len(methods)):
+        for w in range(len(watersheds)):
+            axes[m].scatter(watersheds[w][methods[m]]['P_s'], watersheds[w][methods[m]]['f_Ps'], color=colors[w], marker='.', label=labels[w])
+            axes[m].set_ylim([-5, 5])
+
+    fig.tight_layout(pad=1)
+    plt.legend(bbox_to_anchor=(0.7, 5.6), labelspacing = 0.2, frameon=False)
     plt.show()
-    #plt.savefig(str(method) + '_' + str(catchment) + '_f_ET_s')
-    return summer_P, res_wls.fittedvalues, x_val_ci, ci_low, ci_upp
 
-# Plot the amount of summer precipitation by the amount of evapotranspiration
-# Also print linear regression best fit equation and R squared value
-def PlotAmount(summer_P, summer_P_se, ET, ET_se, method, catchment):
-    plt.scatter(summer_P, ET, marker='o', linestyle='None')
-    plt.errorbar(summer_P, ET, xerr=summer_P_se, yerr=ET_se, marker='.', linestyle='None')
-    plt.title(str(method) + ', ' + str(catchment) + " Rietholzbach")
-    plt.xlabel('Summer Precipitation (mm)')
+# Figure showing annual ET amount by catchment and year
+def plot_et_amounts(x, df_no_lag_all, df_no_lag_upper, df_no_lag_lys, evapotranspiration):
+
+    et_all = [0] * len(x)
+    et_upper = [0] * len(x)
+    et_lys = [0] * len(x)
+    et_wts = [0] * len(x)
+    years_upper = x.copy()
+    years_lys = x.copy()
+    years_wts = x.copy()
+
+    for i in range(len(x)):
+        years_upper[i] += 0.15
+        years_lys[i] += 0.3
+        years_wts[i] += 0.45
+        if float(x[i]) in df_no_lag_all['Year'].tolist():
+            et_all[i] = df_no_lag_all['ET'][df_no_lag_all['Year'].tolist().index(x[i])]
+        if x[i] in df_no_lag_upper['Year'].tolist():
+            et_upper[i] = df_no_lag_upper['ET'][df_no_lag_upper['Year'].tolist().index(x[i])]
+        if x[i] in df_no_lag_lys['Year'].tolist():
+            et_lys[i] = df_no_lag_lys['ET'][df_no_lag_lys['Year'].tolist().index(x[i])]
+        if x[i] in evapotranspiration['Year'].tolist():
+            et_wts[i] = evapotranspiration['annual_ET'][evapotranspiration['Year'].tolist().index(x[i])]
+
+    plt.figure(figsize=(8, 4.5))
+    plt.title('Annual Evapotranspiration Values')
+    plt.xlabel('Year')
+    plt.xticks([1994, 1996, 1998, 2000, 2002, 2004, 2006, 2008, 2010, 2012])
     plt.ylabel('Evapotranspiration (mm)')
 
-    reg_et = LinearRegression().fit(np.array(summer_P).reshape(-1, 1), ET)
-    #print(' ')
-    #print("Using " + str(method) + " precipitation isotope values, " + str(catchment) + " Rietholzbach catchment")
-    #print("R squared for summer precipitation v. ET amount:", reg_et.score(np.array(summer_P).reshape(-1, 1), ET))
-    #print("Equation: y=", reg_et.coef_, "*x +", reg_et.intercept_)
+    data = {"All": et_all, "Upper": et_upper, "Lysimeter discharge": et_lys, "Lysimeter weights": et_wts}
+    plt.bar(x, data['All'], color='purple', width=0.15, label='Rietholzbach Water Balance')
+    plt.bar(years_upper, data['Upper'], color='b', width=0.15, label='Upper Rietholzbach Water Balance')
+    plt.bar(years_lys, data['Lysimeter discharge'], color='r', width=0.15, label='Lysimeter Water Balance')
+    plt.bar(years_wts, data['Lysimeter weights'], color='black', width=0.15, label='Lysimeter Weights')
 
-    plt.plot(summer_P, reg_et.coef_ * summer_P + reg_et.intercept_)
+    plt.legend(bbox_to_anchor=(0.56, 0.28))
     plt.show()
-    #plt.savefig(str(method) + '_' + str(catchment) + '_ET_amt')
+    return data
 
-def line(x, a):
-    y=a[0]*x+a[1]
-    return y
+def calculate_avg_et(watershed):
+    ptot = watershed['Ptot'].tolist()
+    q = watershed['Q'].tolist()
+    avg_et = (sum(ptot)-sum(q))/len(ptot)
+    avg_et_list = []
+    q_rescaled = []
+    for i in range(len(ptot)):
+        avg_et_list.append(avg_et)
+        q_rescaled.append(ptot[i] - avg_et)
+    watershed_updated = watershed.copy()
+    watershed_updated['ET'] = avg_et_list
+    watershed_updated['Q'] = q_rescaled
+    return watershed_updated
 
-def odr_line(p, x):
-    y=[0]*len(x)
-    for i in range(len(x)):
-        y[i] = p[0]*x[i]+p[1]
-    return np.array(y)
+def calculate_scaled_et(watershed, lysimeter_weights):
+    watershed_years = watershed['Year'].tolist()
+    ptot = watershed['Ptot'].tolist()
+    q = watershed['Q'].tolist()
+    sum_watershed_et = sum(ptot)-sum(q)
+    lysimeter_years_nan = lysimeter_weights['Year'].tolist()
+    lysimeter_et_nan = lysimeter_weights['annual_ET'].tolist()
+    lysimeter_years = []
+    lysimeter_et = []
+    for i in range(len(lysimeter_years_nan)):
+        if np.isnan(lysimeter_et_nan[i]):
+            continue
+        else:
+            lysimeter_years.append(lysimeter_years_nan[i])
+            lysimeter_et.append(lysimeter_et_nan[i])
+    new_et = []
+    new_q = []
+    fill_lysimeter_et = []
+    for i in range(len(watershed_years)):
+        if watershed_years[i] in lysimeter_years:
+            fill_lysimeter_et.append(lysimeter_et[lysimeter_years.index(watershed_years[i])])
+        else:
+            fill_lysimeter_et.append(sum(lysimeter_et)/len(lysimeter_et))
+    for i in range(len(watershed_years)):
+        new_et.append(sum_watershed_et * (fill_lysimeter_et[i]/sum(fill_lysimeter_et)))
+        new_q.append(ptot[i] - new_et[i])
+    watershed_updated = watershed.copy()
+    watershed_updated['ET'] = new_et
+    watershed_updated['Q'] = new_q
+    return watershed_updated
 
-def perform_odr(x, y, xerr, yerr):
-    linear = odr.Model(odr_line)
-    mydata = odr.Data(x, y, wd=xerr, we=yerr)
-    myodr = odr.ODR(mydata, linear, beta0=np.array([0, 0]))
-    output = myodr.run()
-    return output
-
-def PlotODR(x, y, method):
-    x_input = x.loc[:, 'f_ET']
-    y_input = y.loc[:, 'f_ET']
-    xerr_input = x.loc[:, 'f_ET_se']
-    yerr_input = y.loc[:, 'f_ET_se']
-
-    subset_x = []
-    subset_xerr = []
-    for i in range(len(x)):
-        if x.loc[i, 'Year'] in list(y.loc[:, 'Year']):
-            subset_x.append(x_input[i])
-            subset_xerr.append(xerr_input[i])
-
-    plot_xerr = []
-    plot_yerr = []
-    for i in range(len(yerr_input)):
-        plot_xerr.append(subset_xerr[i])
-        plot_yerr.append(yerr_input[i])
-        if subset_xerr[i] > 10:
-            plot_xerr[i] = 0
-        if yerr_input[i] > 10:
-            plot_yerr[i] = 0
-
-    plt.scatter(subset_x, y_input, marker='o', linestyle='None')
-    plt.errorbar(subset_x, y_input, xerr=plot_xerr, yerr=plot_yerr, marker='.', linestyle='None')
-    plt.title("Fraction of ET from Summer Precipitation, " + method + " Rietholzbach")
-    plt.xlabel('Fraction of ET from Summer Using Lysimeter')
-    plt.ylabel('Fraction of ET from Summer Using Streamflow')
-
-    x_err = []
-    y_err = []
-
-    for i in range(len(subset_x)):
-        x_err.append(1./subset_xerr[i])
-        y_err.append(1./yerr_input.loc[i])
-
-    xerr=np.array(x_err)
-    yerr=np.array(y_err)
-
-    x=np.array(subset_x)
-    y=np.array(y_input)
-
-    plt.plot([min(subset_x), max(subset_x)], [min(subset_x), max(subset_x)], color='k', linestyle='dashed')
-
-    reg = LinearRegression().fit(np.array(subset_x).reshape(-1, 1), y_input)
-    plt.plot(subset_x, reg.coef_ * subset_x + reg.intercept_, label='Least Squares')
-
-    regression = perform_odr(x, y, xerr, yerr)
-    plt.plot(x, line(x, regression.beta), label='ODR')
-
-    #plt.xlim(axis_limits[0], axis_limits[1])
-    #plt.ylim(axis_limits[2], axis_limits[3])
-
-    plt.legend()
-    plt.show()
-    #plt.savefig(str(method) + '_f_ET_s_compare')
-    return x, regression.beta
-
-def LysCorrectedEndsplit(watershed, lysimeter, method, catchment, undercatch):
-    P_s = watershed['P_s']
-    years = watershed['Year']
-    Qdel = watershed['Qdel']
-    Pdel_s = watershed['Pdel_s']
-    Pdel_w = watershed['Pdel_w']
-    AllP_del = watershed['AllP_del']
-    Ptot = watershed['Ptot']
-    for i in range(len(years)):
-        if years[i] in undercatch['Year']:
-            Ptot[i] += undercatch['Undercatch (mm)'][undercatch['Year'].index(years[i])]
-    Q_post = [0]*len(years)
-    ETdel = [0]*len(years)
-    f_ET  = [0]*len(years)
-    for i in range(len(years)):
-        Q_post[i] = Ptot[i] - lysimeter
-        ETdel[i] = AllP_del[i] * Ptot[i] - Qdel[i] * Q_post[i] / lysimeter
-        f_ET[i] = (ETdel[i]-Pdel_w[i])/(Pdel_s[i]-Pdel_w[i])
-
-    plt.scatter(P_s, f_ET, marker='o', linestyle='None')
-    #plt.errorbar(P_s, f_ET, xerr=P_s_err, yerr=f_ET_err, marker='.', linestyle='None')
-    plt.title("Lysimeter-Corrected Streamflow, " + method + ' ' + catchment + " Rietholzbach")
-    plt.xlabel('Summer Precipitation (mm)')
-    plt.ylabel('Fraction of ET from Summer')
-
-    reg = LinearRegression().fit(np.array(P_s).reshape(-1, 1), f_ET)
-
-    plt.plot(P_s, reg.coef_ * P_s + reg.intercept_)
-
-    plt.show()
-
-    #plt.savefig(str(method) + '_' + str(catchment) + '_' + 'f_ET_s_lys-corrected')
-    return f_ET

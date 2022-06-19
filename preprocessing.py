@@ -2,7 +2,7 @@ import math
 from datetime import datetime as dt
 
 # Convert date strings to datetime objects
-def ConvertDateTime(dates):
+def convert_datetime(dates):
     converted_dates = []
     for i in dates:
         if i == '':
@@ -20,7 +20,7 @@ def ConvertDateTime(dates):
     return converted_dates
 
 # List all years represented by dates
-def ListYears(dates):
+def list_years(dates):
     aux_list = []
     years = []
     for year in dates:
@@ -30,7 +30,7 @@ def ListYears(dates):
     return years
 
 # Find the first (or last) month and year sampled
-def FindStartOfSampling(dates, dates_daily, Pdel, P, Qdel, Q, side=''):
+def find_start_sampling(dates, dates_daily, Pdel, P, Qdel, Q, side=''):
     for i in range(len(dates)):
         if math.isnan(Pdel[i]) or math.isnan(Qdel[i]):
             continue
@@ -59,7 +59,7 @@ def FindStartOfSampling(dates, dates_daily, Pdel, P, Qdel, Q, side=''):
         return print("Choose start or end of sampling period")
 
 # List dates outside of a fully sampled hydrologic year which runs from October to September
-def ListUnusableDates(dates, first_month, first_year_index, last_month, last_year_index, years):
+def list_unusable_dates(dates, first_month, first_year_index, last_month, last_year_index, years):
     no_count_date = []
     for i in range(len(dates)):
         year_index = years.index(int(dates[i].strftime('%Y')))
@@ -79,7 +79,7 @@ def ListUnusableDates(dates, first_month, first_year_index, last_month, last_yea
     return no_count_date
 
 # Remove the dates listed in ListUnusableDates and split the flux data into each hydrologic year
-def SplitFluxesByHydrologicYear(dates, years, no_count_date, precipitation, runoff, temperature):
+def split_fluxes_by_hydro_year(dates, years, no_count_date, precipitation, runoff, temperature):
     flux_data = [[] for _ in years]
     for y in range(len(years)):
          flux_data[y] = {'year': years[y], 'dates': [], 'P': [], 'Pcat': [], 'Q': [], 'Qcat': [], 'Tcat': []}
@@ -116,12 +116,12 @@ def SplitFluxesByHydrologicYear(dates, years, no_count_date, precipitation, runo
 
 # Remove the dates listed above and split isotope data into each year
 # If the sampling period spans two seasons, add a date for the last day of the season to split up the fluxes by season
-def SplitIsotopesByHydrologicYear(dates, intervals, years, no_count_date, precipitation, runoff, first_year):
+def split_isotopes_by_hydro_year(dates, intervals, years, no_count_date, precipitation, runoff, first_year):
     date_by_year = [[] for _ in years]
     precip_d_year = [[] for _ in years]
-    Pdelcat_with_nan = [[] for _ in years]
+    pdelcat_with_nan = [[] for _ in years]
     runoff_d_year = [[] for _ in years]
-    Qdelcat_with_nan = [[] for _ in years]
+    qdelcat_with_nan = [[] for _ in years]
     interval_by_year = [[] for _ in years]
 
     for i in range(len(dates)):
@@ -138,12 +138,12 @@ def SplitIsotopesByHydrologicYear(dates, intervals, years, no_count_date, precip
                 date_by_year[index - 1].append(dates[i])
                 precip_d_year[index - 1].append(precipitation[i])
                 precip_d_year[index - 1].append(precipitation[i])
-                Pdelcat_with_nan[index - 1].append("winter")
-                Pdelcat_with_nan[index - 1].append("summer")
+                pdelcat_with_nan[index - 1].append("winter")
+                pdelcat_with_nan[index - 1].append("summer")
                 runoff_d_year[index - 1].append(runoff[i])
                 runoff_d_year[index - 1].append(runoff[i])
-                Qdelcat_with_nan[index - 1].append("winter")
-                Qdelcat_with_nan[index - 1].append("summer")
+                qdelcat_with_nan[index - 1].append("winter")
+                qdelcat_with_nan[index - 1].append("summer")
                 interval_by_year[index - 1].append(interval - days_in_month)
                 interval_by_year[index - 1].append(days_in_month)
             else:
@@ -152,32 +152,32 @@ def SplitIsotopesByHydrologicYear(dates, intervals, years, no_count_date, precip
                 runoff_d_year[index - 1].append(runoff[i])
                 interval_by_year[index - 1].append(interval)
                 if month < 5:
-                    Pdelcat_with_nan[index - 1].append("winter")
-                    Qdelcat_with_nan[index - 1].append("winter")
+                    pdelcat_with_nan[index - 1].append("winter")
+                    qdelcat_with_nan[index - 1].append("winter")
                 else:
-                    Pdelcat_with_nan[index - 1].append("summer")
-                    Qdelcat_with_nan[index - 1].append("summer")
+                    pdelcat_with_nan[index - 1].append("summer")
+                    qdelcat_with_nan[index - 1].append("summer")
         else:
             if month == 10 and days_in_month < interval:
                 date_by_year[index].append(dates[i])
                 precip_d_year[index].append(precipitation[i])
-                Pdelcat_with_nan[index].append("winter")
+                pdelcat_with_nan[index].append("winter")
                 runoff_d_year[index].append(runoff[i])
-                Qdelcat_with_nan[index].append("winter")
+                qdelcat_with_nan[index].append("winter")
                 interval_by_year[index].append(days_in_month)
                 if year == first_year:
                     continue
                 date_by_year[index-1].append(dt(int(year), 9, 30))
                 precip_d_year[index - 1].append(precipitation[i])
-                Pdelcat_with_nan[index - 1].append("summer")
+                pdelcat_with_nan[index - 1].append("summer")
                 runoff_d_year[index - 1].append(runoff[i])
-                Qdelcat_with_nan[index - 1].append("summer")
+                qdelcat_with_nan[index - 1].append("summer")
                 interval_by_year[index - 1].append(interval - days_in_month)
             else:
                 date_by_year[index].append(dates[i])
                 precip_d_year[index].append(precipitation[i])
-                Pdelcat_with_nan[index].append("winter")
+                pdelcat_with_nan[index].append("winter")
                 runoff_d_year[index].append(runoff[i])
-                Qdelcat_with_nan[index].append("winter")
+                qdelcat_with_nan[index].append("winter")
                 interval_by_year[index].append(interval)
-    return date_by_year, precip_d_year, Pdelcat_with_nan, runoff_d_year, Qdelcat_with_nan, interval_by_year
+    return date_by_year, precip_d_year, pdelcat_with_nan, runoff_d_year, qdelcat_with_nan, interval_by_year
