@@ -30,7 +30,7 @@ def list_years(dates):
     return years
 
 # Find the first (or last) month and year sampled
-def find_start_sampling(dates, dates_daily, Pdel, P, Qdel, Q, side=''):
+def find_range_sampling(dates, dates_daily, Pdel, P, Qdel, Q, side=''):
     for i in range(len(dates)):
         if math.isnan(Pdel[i]) or math.isnan(Qdel[i]):
             continue
@@ -67,14 +67,14 @@ def list_unusable_dates(dates, first_month, first_year_index, last_month, last_y
         if first_month > 10:
             if year_index <= first_year_index or month < 10 and year_index == first_year_index + 1:
                 no_count_date.append(dates[i])
-        elif first_month <= 10:
+        elif first_month < 10:
             if month < 10 and year_index == first_year_index or year_index < first_year_index:
                 no_count_date.append(dates[i])
-        if last_month >= 10:
+        if last_month > 9:
             if month >= 10 and year_index == last_year_index or year_index > last_year_index:
                 no_count_date.append(dates[i])
-        elif last_month < 10:
-            if month >= 10 and year_index == last_year_index - 1 or year_index >= last_year_index:
+        elif last_month < 9:
+            if month >= 10 and year_index == last_year_index -1 or year_index >= last_year_index:
                 no_count_date.append(dates[i])
     return no_count_date
 

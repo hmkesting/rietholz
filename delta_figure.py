@@ -130,10 +130,10 @@ def plot_del_figure(start_summer, start_winter, wtd_mean_summer, s_error_summer,
     s_error_winter_low = wtd_mean_winter - s_error_winter
     letters_list = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-    plt.figure(figsize=(7.5, 3.5))
+    plt.figure(figsize=(9, 4.5))
 
-    plt.scatter(date_all, stream_isotope, all_pt_size, color='blue', marker='.', label='All')
-    plt.scatter(date_upper, stream_isotope_upper, upper_pt_size, color='orange', marker='.', label='Upper')
+    plt.scatter(date_all, stream_isotope, all_pt_size, color='blue', marker='.', label='All RHB')
+    plt.scatter(date_upper, stream_isotope_upper, upper_pt_size, color='orange', marker='.', label='Upper RHB')
     plt.scatter(date_lys, isotope_lysimeter_seepage, lys_pt_size, color='green', marker='.', label='Lysimeter')
     plt.plot((start_summer-0.5, start_winter-0.5), (wtd_mean_summer, wtd_mean_summer), color='yellow', linewidth=3, label='Summer precipitation')
     plt.plot((start_summer-0.5, start_winter-0.5), (s_error_summer_high, s_error_summer_high), color='yellow', linewidth=1)
@@ -145,11 +145,12 @@ def plot_del_figure(start_summer, start_winter, wtd_mean_summer, s_error_summer,
     plt.plot((start_winter-0.5, 11), (s_error_winter_high, s_error_winter_high), color='grey', linewidth=1)
     plt.plot((start_winter-0.5, 11), (s_error_winter_low, s_error_winter_low), color='grey', linewidth=1)
     for i in [0,2]:
-        plt.plot((0, 11), (wtd_mean_stream[i], wtd_mean_stream[i]), color=colors[i], linewidth=1, label=stream_label[i])
-    plt.errorbar(letters_list, wtd_mean_per_month, yerr=s_error_per_month, fmt='.', color='black', label='Monthly averages')
+        plt.plot((0, 11), (wtd_mean_stream[i], wtd_mean_stream[i]), color=colors[i], linewidth=2, label=stream_label[i])
+    plt.errorbar(letters_list, wtd_mean_per_month, yerr=s_error_per_month, fmt='.', color='black', label='Monthly precipitation averages')
     plt.legend(bbox_to_anchor=(1.01, 0.95))
     plt.title('Weighted δ$^{18}$O Values of Precipitation and Runoff')
     plt.xlabel('Month')
     plt.ylabel('δ$^{18}$O (‰)')
     plt.tight_layout()
+    #plt.savefig(r'C:\Users\User\Documents\UNR\Swiss Project\Coding\figures\Pdel.eps', dpi=500)
     plt.show()

@@ -44,7 +44,6 @@ def wtd_mean(x, wt=None):
 
 # Check the category labels and vector lengths match
 def data_checks(pcat, pdelcat, pdel, pwt, p, qcat, qdelcat, qdel, qwt, q):
-
     if set(pcat) != set(pdelcat):
         raise Exception('fatal error: Pcat and Pdelcat use different labels')
     if set(qcat) != set(qdelcat):
@@ -215,14 +214,15 @@ def endsplit(pdel, qdel, pwt, qwt, pdelcat, qdelcat, p, q, pcat, qcat):
     f_ps_se = table.iloc[3, 6]
     ET = qtot[3]
     ET_se = qtot_se[3]
-    summer_p = ptot[0]
-    summer_p_se = ptot_se[0]
     allq = qtot[2]
     qdel_bar = qdel_bar[2]
     pdel_s = pdel_bar[0]
     pdel_w = pdel_bar[1]
-    return [0, allq, qdel_bar, allp, summer_p, summer_p_se, pdel_s, pdel_w, f_ET_from_summer, f_ET_se, ET, ET_se,
-            allp_del, f_ps_to_ET, f_ps_se]
+
+    ratio_se = ptot[0]/ptot[1]*math.sqrt((ptot_se[0]/ptot[0])**2 + (ptot_se[1]/ptot[1])**2)
+    return [0, allq, qdel_bar, allp, ptot[0], ptot_se[0], pdel_s, pdel_w, f_ET_from_summer, f_ET_se, ET, ET_se,
+            allp_del, f_ps_to_ET, f_ps_se, ptot[1], ptot_se[1], ptot[0]/ptot[1], ratio_se], table
+
 
 
 

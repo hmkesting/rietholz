@@ -5,29 +5,26 @@ def sum_precipitation_and_runoff(dates_sampling, fluxes, pdel, qdel):
     pwt = [[] for _ in fluxes]
     qwt = [[] for _ in fluxes]
     sum_precip = 0
-    sum_stream = 0
 
     for i in range(len(fluxes)):
         for d in range(len(fluxes[i]['dates'])):
             if math.isnan(fluxes[i]['P'][d]):
                 continue
             sum_precip += fluxes[i]['P'][d]
-            sum_stream += fluxes[i]['Q'][d]
+            daily_stream = fluxes[i]['Q'][d]
             if fluxes[i]['dates'][d] in dates_sampling[i]:
                 index = dates_sampling[i].index(fluxes[i]['dates'][d])
                 if math.isnan(pdel[i][index]) and math.isnan(qdel[i][index]):
                     sum_precip = 0
-                    sum_stream = 0
                     continue
                 elif math.isnan(pdel[i][index]) and not math.isnan(qdel[i][index]):
-                    qwt[i].append(sum_stream)
+                    qwt[i].append(daily_stream)
                 elif not math.isnan(pdel[i][index]) and math.isnan(qdel[i][index]):
                     pwt[i].append(sum_precip)
                 else:
                     pwt[i].append(sum_precip)
-                    qwt[i].append(sum_stream)
+                    qwt[i].append(daily_stream)
                 sum_precip = 0
-                sum_stream = 0
     return pwt, qwt
 
 # Remove NaN (missing data) and associated categorical variable from isotope data
