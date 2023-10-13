@@ -1,6 +1,7 @@
 from calc_endsplit import endsplit
 from plot_endsplit import ols_slope_int
 import numpy as np
+import random
 from random import choices
 import statistics
 from textwrap import wrap
@@ -8,6 +9,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
+# Use the numerical solution approach to calculate partitioning fractions by substituting each variable in the EMM
+# equations with a linear regression between that variable and the x-axis (seasonal precipitation amount)
 def calculate_yvals(x_column, x_axis, Pdel_s, Pdel_w, P_s, P_w, Q_s, Q_w, Qdel_s, Qdel_w, f_Qs_from_Ps, f_Qw_from_Ps,
                     f_Ps_to_Qs, f_Ps_to_Qw, f_Pw_to_Qs, f_Pw_to_Qw, mm_Ps_to_Qs, mm_Ps_to_Qw, mm_Pw_to_Qs, mm_Pw_to_Qw):
     if x_column == 'P_s':
@@ -72,6 +75,9 @@ def calculate_yvals(x_column, x_axis, Pdel_s, Pdel_w, P_s, P_w, Q_s, Q_w, Qdel_s
     return f_Qs_from_Ps, f_Qw_from_Ps, f_Ps_to_Qs, f_Ps_to_Qw, f_Pw_to_Qs, f_Pw_to_Qw, \
            mm_Ps_to_Qs, mm_Ps_to_Qw, mm_Pw_to_Qs, mm_Pw_to_Qw
 
+
+# Iterate through random seed 1 to 3000 to select samples of the years, then apply the samples using the numerical
+# solution approach and record the resulting partitioning fractions for each iteration
 def bootstrapping_numerical(df, x_column, X_axis):
     # y values used to calculate percentiles and medians for each segment of the numerical solution plot
     f_Qs_from_Ps = [[] for _ in X_axis]
@@ -84,7 +90,7 @@ def bootstrapping_numerical(df, x_column, X_axis):
     mm_Ps_to_Qw = [[] for _ in X_axis]
     mm_Pw_to_Qs = [[] for _ in X_axis]
     mm_Pw_to_Qw = [[] for _ in X_axis]
-    for n in range(3000):     # change to 3000
+    for n in range(3000):
         Pdel_s = []
         Pdel_w = []
         P_w = []
@@ -94,6 +100,7 @@ def bootstrapping_numerical(df, x_column, X_axis):
         Q_s = []
         Q_w = []
         length = len(df[x_column])
+        random.seed(n)
         sample_indices = choices(range(len(df[x_column])), k=length)
         for i in sample_indices:
             Pdel_s.append(df['Pdel_s'][i])
@@ -112,6 +119,8 @@ def bootstrapping_numerical(df, x_column, X_axis):
     return f_Qs_from_Ps, f_Qw_from_Ps, f_Ps_to_Qs, f_Ps_to_Qw, f_Pw_to_Qs, f_Pw_to_Qw, \
            mm_Ps_to_Qs, mm_Ps_to_Qw, mm_Pw_to_Qs, mm_Pw_to_Qw
 
+
+# Plot a single panel in the bootstrapping figures
 def plot_bootstrapping(ax, X_axis, y_axis, lim=True):
     ax.grid()
     p_2_5 = []
@@ -142,6 +151,9 @@ def plot_bootstrapping(ax, X_axis, y_axis, lim=True):
     if lim == True:
         ax.set_ylim([-0.5, 1.5])
 
+
+# Similar to calculate_yvals function above, but using the partitioning equations for the fraction of ET from
+# summer precipitation and the fraction of seasonal precipitation to ET (EMS)
 def calculate_yvals_et(x_column, x_axis, Pdel_s, Pdel_w, P_s, P_w, Q, Qdel, ET, f_ET_from_Ps, f_Ps_to_ET, f_Pw_to_ET,
                        mm_Ps_to_ET, mm_Pw_to_ET):
     if x_column == 'P_s':
@@ -190,6 +202,7 @@ def calculate_yvals_et(x_column, x_axis, Pdel_s, Pdel_w, P_s, P_w, Q, Qdel, ET, 
             mm_Pw_to_ET[i].append(f_Pw_ET * x_axis[i])
     return f_ET_from_Ps, f_Ps_to_ET, f_Pw_to_ET, mm_Ps_to_ET, mm_Pw_to_ET
 
+
 def bootstrapping_numerical_et(df, x_column, X_axis):
     # y values used to calculate percentiles and medians for each segment of the numerical solution plot
     f_ET_from_Ps = [[] for _ in X_axis]
@@ -206,6 +219,7 @@ def bootstrapping_numerical_et(df, x_column, X_axis):
         P_w = []
         P_s = []
         length = len(df[x_column])
+        random.seed(n)
         sample_indices = choices(range(len(df[x_column])), k=length)
         for i in sample_indices:
             Q.append(df['Q'][i])
@@ -223,7 +237,7 @@ def bootstrapping_numerical_et(df, x_column, X_axis):
 
 def plot_panels_q(iso_data, fluxes, pwt, qwt, X_axis, title):
     columns = ['Year', 'Ptot', 'P_s', 'P_s_se', 'P_w', 'P_w_se', 'Pdel_s', 'Pdel_w', 'Q', 'Qdel', 'ET', 'Qdel_s',
-               'Qdel_w', 'Q_s', 'Q_w']
+               'Qdel_w', 'Q_s', 'Q_w', 'ET_se', 'Q_s_se', 'Q_w_se']
     endsplit_results = []
     for i in range(len(iso_data)):
         row = endsplit(iso_data[i]['Pdel'], iso_data[i]['Qdel'], pwt[i], qwt[i],
@@ -236,8 +250,13 @@ def plot_panels_q(iso_data, fluxes, pwt, qwt, X_axis, title):
     f_Qs_from_Ps, f_Qw_from_Ps, f_Ps_to_Qs, f_Ps_to_Qw, f_Pw_to_Qs, f_Pw_to_Qw, \
     mm_Ps_to_Qs, mm_Ps_to_Qw, mm_Pw_to_Qs, mm_Pw_to_Qw = bootstrapping_numerical(df, 'P_s', X_axis)
 
-    fig, axs = plt.subplots(5, 4, figsize=(12, 14))
-    fig.suptitle(title + ': Bootstrapping Numerical Solution for Discharge Fractions', fontsize=18)
+    results = f_Qs_from_Ps, f_Qw_from_Ps, f_Ps_to_Qs, f_Ps_to_Qw, f_Pw_to_Qs, f_Pw_to_Qw, \
+    mm_Ps_to_Qs, mm_Ps_to_Qw, mm_Pw_to_Qs, mm_Pw_to_Qw
+    result_cols = ['f_Qs_from_Ps', 'f_Qw_from_Ps', 'f_Ps_to_Qs', 'f_Ps_to_Qw', 'f_Pw_to_Qs', 'f_Pw_to_Qw', \
+    'mm_Ps_to_Qs', 'mm_Ps_to_Qw', 'mm_Pw_to_Qs', 'mm_Pw_to_Qw']
+    summer_results = {result_cols[i]: results[i] for i in range(len(results))}
+
+    fig, axs = plt.subplots(5, 3, figsize=(9, 14))
     y_ticks = [-0.5, 0, 0.5, 1.0, 1.5]
     axs[0, 0].set_yticks(y_ticks)
     axs[1, 0].set_yticks(y_ticks)
@@ -248,55 +267,79 @@ def plot_panels_q(iso_data, fluxes, pwt, qwt, X_axis, title):
     axs[0, 2].set_yticks(y_ticks)
     axs[1, 2].set_yticks(y_ticks)
     axs[2, 2].set_yticks(y_ticks)
-    axs[0, 3].set_yticks(y_ticks)
-    axs[1, 3].set_yticks(y_ticks)
-    axs[2, 3].set_yticks(y_ticks)
-    axs[0, 0].set_ylabel(('\n'.join(wrap('Fraction of Winter Runoff From Summer Precipitation (unitless)', 35))))
-    plot_bootstrapping(axs[0, 0], X_axis, f_Qw_from_Ps)
-    axs[1, 0].set_ylabel(('\n'.join(wrap('Fraction of Summer Precipitation to Winter Runoff (unitless)', 35))))
-    plot_bootstrapping(axs[1, 0], X_axis, f_Ps_to_Qw)
-    axs[2, 0].set_ylabel(('\n'.join(wrap('Fraction of Winter Precipitation to Winter Runoff (unitless)', 35))))
-    plot_bootstrapping(axs[2, 0], X_axis, f_Pw_to_Qw)
-    axs[3, 0].set_ylabel(('\n'.join(wrap('Amount of Summer Precipitation to Winter Runoff (mm)', 30))))
-    plot_bootstrapping(axs[3, 0], X_axis, mm_Ps_to_Qw, lim=False)
-    axs[4, 0].set_ylabel(('\n'.join(wrap('Amount of Winter Precipitation to Winter Runoff (mm)', 30))))
-    plot_bootstrapping(axs[4, 0], X_axis, mm_Pw_to_Qw, lim=False)
-    axs[4, 0].set_xlabel('Summer Precipitation (mm)')
+    axs[3, 0].set_ylim(-100, 850)
+    axs[3, 1].set_ylim(-100, 850)
+    axs[3, 2].set_ylim(-100, 850)
+    axs[4, 0].set_ylim(-100, 850)
+    axs[4, 1].set_ylim(-100, 850)
+    axs[4, 2].set_ylim(-100, 850)
 
-    axs[0, 2].set_ylabel(('\n'.join(wrap('Fraction of Summer Runoff From Summer Precipitation (unitless)', 35))))
-    plot_bootstrapping(axs[0, 2], X_axis, f_Qs_from_Ps)
-    axs[1, 2].set_ylabel(('\n'.join(wrap('Fraction of Summer Precipitation to Summer Runoff (unitless)', 35))))
-    plot_bootstrapping(axs[1, 2], X_axis, f_Ps_to_Qs)
-    axs[2, 2].set_ylabel(('\n'.join(wrap('Fraction of Winter Precipitation to Summer Runoff (unitless)', 35))))
-    plot_bootstrapping(axs[2, 2], X_axis, f_Pw_to_Qs)
-    axs[3, 2].set_ylabel(('\n'.join(wrap('Amount of Summer Precipitation to Summer Runoff (mm)', 30))))
-    plot_bootstrapping(axs[3, 2], X_axis, mm_Ps_to_Qs, lim=False)
-    axs[4, 2].set_ylabel(('\n'.join(wrap('Amount of Winter Precipitation to Summer Runoff (mm)', 30))))
-    plot_bootstrapping(axs[4, 2], X_axis, mm_Pw_to_Qs, lim=False)
-    axs[4, 2].set_xlabel('Summer Precipitation (mm)')
+    axs[0, 1].set_ylabel(('\n'.join(wrap('Fraction of Q$_{S}$ from P$_{S}$ (unitless)', 30))), fontsize=16)
+    plot_bootstrapping(axs[0, 1], X_axis, f_Qs_from_Ps)
+    axs[1, 1].set_ylabel(('\n'.join(wrap('Fraction of P$_{S}$ to Q$_{S}$ (unitless)', 30))), fontsize=16)
+    plot_bootstrapping(axs[1, 1], X_axis, f_Ps_to_Qs)
+    axs[2, 1].set_ylabel(('\n'.join(wrap('Fraction of P$_{W}$ to Q$_{S}$ (unitless)', 30))), fontsize=16)
+    plot_bootstrapping(axs[2, 1], X_axis, f_Pw_to_Qs)
+    axs[3, 1].set_ylabel(('\n'.join(wrap('Amount of P$_{S}$ to Q$_{S}$ (mm)', 30))), fontsize=16)
+    plot_bootstrapping(axs[3, 1], X_axis, mm_Ps_to_Qs, lim=False)
+    axs[4, 1].set_ylabel(('\n'.join(wrap('Amount of P$_{W}$ to Q$_{S}$ (mm)', 30))), fontsize=16)
+    plot_bootstrapping(axs[4, 1], X_axis, mm_Pw_to_Qs, lim=False)
+    axs[4, 1].set_xlabel('P$_{S}$ (mm)', fontsize=16)
 
     f_Qs_from_Ps, f_Qw_from_Ps, f_Ps_to_Qs, f_Ps_to_Qw, f_Pw_to_Qs, f_Pw_to_Qw, \
     mm_Ps_to_Qs, mm_Ps_to_Qw, mm_Pw_to_Qs, mm_Pw_to_Qw = bootstrapping_numerical(df, 'P_w', X_axis)
 
-    plot_bootstrapping(axs[0, 1], X_axis, f_Qw_from_Ps)
-    plot_bootstrapping(axs[1, 1], X_axis, f_Ps_to_Qw)
-    plot_bootstrapping(axs[2, 1], X_axis, f_Pw_to_Qw)
-    plot_bootstrapping(axs[3, 1], X_axis, mm_Ps_to_Qw, lim=False)
-    plot_bootstrapping(axs[4, 1], X_axis, mm_Pw_to_Qw, lim=False)
-    axs[4, 1].set_xlabel('Winter Precipitation (mm)')
+    results = f_Qs_from_Ps, f_Qw_from_Ps, f_Ps_to_Qs, f_Ps_to_Qw, f_Pw_to_Qs, f_Pw_to_Qw, \
+              mm_Ps_to_Qs, mm_Ps_to_Qw, mm_Pw_to_Qs, mm_Pw_to_Qw
+    winter_results = {result_cols[i]: results[i] for i in range(len(results))}
 
-    plot_bootstrapping(axs[0, 3], X_axis, f_Qs_from_Ps)
-    plot_bootstrapping(axs[1, 3], X_axis, f_Ps_to_Qs)
-    plot_bootstrapping(axs[2, 3], X_axis, f_Pw_to_Qs)
-    plot_bootstrapping(axs[3, 3], X_axis, mm_Ps_to_Qs, lim=False)
-    plot_bootstrapping(axs[4, 3], X_axis, mm_Pw_to_Qs, lim=False)
-    axs[4, 3].set_xlabel('Winter Precipitation (mm)')
+    axs[0, 0].set_ylabel(('\n'.join(wrap('Fraction of Q$_{W}$ from P$_{S}$ (unitless)', 30))), fontsize=16)
+    axs[1, 0].set_ylabel(('\n'.join(wrap('Fraction of P$_{S}$ to Q$_{W}$ (unitless)', 30))), fontsize=16)
+    axs[2, 0].set_ylabel(('\n'.join(wrap('Fraction of P$_{W}$ to Q$_{W}$ (unitless)', 30))), fontsize=16)
+    axs[3, 0].set_ylabel(('\n'.join(wrap('Amount of P$_{S}$ to Q$_{W}$ (mm)', 30))), fontsize=16)
+    axs[4, 0].set_ylabel(('\n'.join(wrap('Amount of P$_{W}$ to Q$_{W}$ (mm)', 30))), fontsize=16)
+    axs[4, 0].set_xlabel('P$_{W}$ (mm)', fontsize=16)
+
+    plot_bootstrapping(axs[0, 0], X_axis, f_Qw_from_Ps)
+    plot_bootstrapping(axs[1, 0], X_axis, f_Ps_to_Qw)
+    plot_bootstrapping(axs[2, 0], X_axis, f_Pw_to_Qw)
+    plot_bootstrapping(axs[3, 0], X_axis, mm_Ps_to_Qw, lim=False)
+    plot_bootstrapping(axs[4, 0], X_axis, mm_Pw_to_Qw, lim=False)
+
+    plot_bootstrapping(axs[0, 2], X_axis, f_Qs_from_Ps)
+    plot_bootstrapping(axs[1, 2], X_axis, f_Ps_to_Qs)
+    plot_bootstrapping(axs[2, 2], X_axis, f_Pw_to_Qs)
+    plot_bootstrapping(axs[3, 2], X_axis, mm_Ps_to_Qs, lim=False)
+    plot_bootstrapping(axs[4, 2], X_axis, mm_Pw_to_Qs, lim=False)
+    axs[4, 2].set_xlabel('P$_{W}$ (mm)', fontsize=16)
+
+    axs[0, 0].text(450, 1.55, "A", fontsize=16)
+    axs[0, 1].text(450, 1.55, "B", fontsize=16)
+    axs[0, 2].text(450, 1.55, "C", fontsize=16)
+    axs[1, 0].text(450, 1.55, "D", fontsize=16)
+    axs[1, 1].text(450, 1.55, "E", fontsize=16)
+    axs[1, 2].text(450, 1.55, "F", fontsize=16)
+    axs[2, 0].text(450, 1.55, "G", fontsize=16)
+    axs[2, 1].text(450, 1.55, "H", fontsize=16)
+    axs[2, 2].text(450, 1.55, "I", fontsize=16)
+    axs[3, 0].text(450, 890, "J", fontsize=16)
+    axs[3, 1].text(450, 875, "K", fontsize=16)
+    axs[3, 2].text(450, 875, "L", fontsize=16)
+    axs[4, 0].text(450, 875, "M", fontsize=16)
+    axs[4, 1].text(450, 875, "N", fontsize=16)
+    axs[4, 2].text(450, 875, "O", fontsize=16)
+
     fig.tight_layout()
+    plt.subplots_adjust(bottom=0.1)
+    axs[4, 2].legend(ncol=2, bbox_to_anchor=(0.9, -0.25), fontsize=16)
+    #fig.savefig(r'C:\Users\User\Documents\UNR\Swiss Project\Coding\figures\Qpartitioning' + title + '.svg', dpi=500)
     plt.show()
+
+    return df, summer_results, winter_results
 
 def plot_panels_et(years, iso_data, fluxes, pwt, qwt, et_df, X_axis, title):
     columns = ['Year', 'Ptot', 'P_s', 'P_s_se', 'P_w', 'P_w_se', 'Pdel_s', 'Pdel_w', 'Q', 'Qdel', 'ET', 'Qdel_s',
-               'Qdel_w', 'Q_s', 'Q_w']
+               'Qdel_w', 'Q_s', 'Q_w', 'ET_se', 'Q_s_se', 'Q_w_se']
     annual_precip_upp = [0] * len(years)
     annual_runoff_upp = [0] * len(years)
     for i in range(len(years)):
@@ -327,9 +370,12 @@ def plot_panels_et(years, iso_data, fluxes, pwt, qwt, et_df, X_axis, title):
 
     f_ET_from_Ps, f_Ps_to_ET, f_Pw_to_ET, mm_Ps_to_ET, mm_Pw_to_ET = bootstrapping_numerical_et(df, 'P_s', X_axis)
 
+    result_cols = ['f_ET_from_Ps', 'f_Ps_to_ET', 'f_Pw_to_ET', 'mm_Ps_to_ET', 'mm_Pw_to_ET']
+    results = f_ET_from_Ps, f_Ps_to_ET, f_Pw_to_ET, mm_Ps_to_ET, mm_Pw_to_ET
+    summer_results = {result_cols[i]: results[i] for i in range(len(results))}
+
     fig, axs = plt.subplots(5, 2, figsize=(6, 14))
-    fig.suptitle('\n'.join(wrap(title + ': Bootstrapping Numerical Solution for Evapotranspiration Fractions', 45)),
-                 fontsize=18)
+
     y_ticks = [-0.5, 0, 0.5, 1.0, 1.5]
     axs[0, 0].set_yticks(y_ticks)
     axs[1, 0].set_yticks(y_ticks)
@@ -337,28 +383,52 @@ def plot_panels_et(years, iso_data, fluxes, pwt, qwt, et_df, X_axis, title):
     axs[0, 1].set_yticks(y_ticks)
     axs[1, 1].set_yticks(y_ticks)
     axs[2, 1].set_yticks(y_ticks)
-    axs[0, 0].set_ylabel(('\n'.join(wrap('Fraction of Evapotranspiration From Summer Precipitation (unitless)', 35))))
+    axs[3, 0].set_ylim(-300, 800)
+    axs[3, 1].set_ylim(-300, 800)
+    axs[4, 0].set_ylim(-300, 800)
+    axs[4, 1].set_ylim(-300, 800)
+
+    axs[0, 0].set_ylabel(('\n'.join(wrap('Fraction of ET from P$_{S}$ (unitless)', 30))), fontsize=16)
     plot_bootstrapping(axs[0, 0], X_axis, f_ET_from_Ps)
-    axs[1, 0].set_ylabel(('\n'.join(wrap('Fraction of Summer Precipitation to Evapotranspiration (unitless)', 35))))
+    axs[1, 0].set_ylabel(('\n'.join(wrap('Fraction of P$_{S}$ to ET (unitless)', 30))), fontsize=16)
     plot_bootstrapping(axs[1, 0], X_axis, f_Ps_to_ET)
-    axs[2, 0].set_ylabel(('\n'.join(wrap('Fraction of Winter Precipitation to Evapotranspiration (unitless)', 35))))
+    axs[2, 0].set_ylabel(('\n'.join(wrap('Fraction of P$_{W}$ to ET (unitless)', 30))), fontsize=16)
     plot_bootstrapping(axs[2, 0], X_axis, f_Pw_to_ET)
-    axs[3, 0].set_ylabel(('\n'.join(wrap('Amount of Summer Precipitation to Evapotranspiraiton (mm)', 35))))
+    axs[3, 0].set_ylabel(('\n'.join(wrap('Amount of P$_{S}$ to ET (mm)', 25))), fontsize=16)
     plot_bootstrapping(axs[3, 0], X_axis, mm_Ps_to_ET, lim=False)
-    axs[4, 0].set_ylabel(('\n'.join(wrap('Amount of Winter Precipitation to Evapotranspiraiton (mm)', 35))))
+    axs[4, 0].set_ylabel(('\n'.join(wrap('Amount of P$_{W}$ to ET (mm)', 25))), fontsize=16)
     plot_bootstrapping(axs[4, 0], X_axis, mm_Pw_to_ET, lim=False)
-    axs[4, 0].set_xlabel('Summer Precipitation (mm)')
+    axs[4, 0].set_xlabel('P$_{S}$ (mm)', fontsize=16)
 
     f_ET_from_Ps, f_Ps_to_ET, f_Pw_to_ET, mm_Ps_to_ET, mm_Pw_to_ET = bootstrapping_numerical_et(df, 'P_w', X_axis)
+
+    results = f_ET_from_Ps, f_Ps_to_ET, f_Pw_to_ET, mm_Ps_to_ET, mm_Pw_to_ET
+    winter_results = {result_cols[i]: results[i] for i in range(len(results))}
 
     plot_bootstrapping(axs[0, 1], X_axis, f_ET_from_Ps)
     plot_bootstrapping(axs[1, 1], X_axis, f_Ps_to_ET)
     plot_bootstrapping(axs[2, 1], X_axis, f_Pw_to_ET)
     plot_bootstrapping(axs[3, 1], X_axis, mm_Ps_to_ET, lim=False)
     plot_bootstrapping(axs[4, 1], X_axis, mm_Pw_to_ET, lim=False)
-    axs[4, 1].set_xlabel('Winter Precipitation (mm)')
+    axs[4, 1].set_xlabel('P$_{W}$ (mm)', fontsize=16)
+
+    axs[0, 0].text(450, 1.55, "A", fontsize=16)
+    axs[0, 1].text(450, 1.55, "B", fontsize=16)
+    axs[1, 0].text(450, 1.55, "C", fontsize=16)
+    axs[1, 1].text(450, 1.55, "D", fontsize=16)
+    axs[2, 0].text(450, 1.55, "E", fontsize=16)
+    axs[2, 1].text(450, 1.55, "F", fontsize=16)
+    axs[3, 0].text(450, 820, "G", fontsize=16)
+    axs[3, 1].text(450, 820, "H", fontsize=16)
+    axs[4, 0].text(450, 820, "I", fontsize=16)
+    axs[4, 1].text(450, 835, "J", fontsize=16)
+
     fig.tight_layout()
+    plt.subplots_adjust(bottom=0.14)
+    axs[4, 1].legend(ncol=1, bbox_to_anchor=(0.7, -0.25), fontsize=16)
+    #fig.savefig(r'C:\Users\User\Documents\UNR\Swiss Project\Coding\figures\ETpartitioning' + title + '.svg', dpi=500)
+
     plt.show()
 
-    return df
+    return df, summer_results, winter_results
 

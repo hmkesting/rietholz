@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 # Function to calculate weighted mean and error
-def wtd_mean(x, wt=None):
+def wtd_mean(x, wt=None) -> object:
     if wt is None:
         wt = [1] * len(x)
 
@@ -42,7 +42,8 @@ def wtd_mean(x, wt=None):
     varx = (sum(varx_list)/sumwt) * n_eff/(n_eff - 1.0)
     return xbar, math.sqrt(varx/n_eff)
 
-# Check the category labels and vector lengths match
+
+# Check that category labels and vector lengths match
 def data_checks(pcat, pdelcat, pdel, pwt, p, qcat, qdelcat, qdel, qwt, q) -> object:
     if set(pcat) != set(pdelcat):
         raise Exception('fatal error: Pcat and Pdelcat use different labels')
@@ -61,6 +62,7 @@ def data_checks(pcat, pdelcat, pdel, pwt, p, qcat, qdelcat, qdel, qwt, q) -> obj
         raise Exception("fatal error: P and Pcat must have the same length")
     if len(q) != len(qcat):
         raise Exception("fatal error: Q and Qcat must have the same length")
+
 
 # Calculate isotope weighted means, total fluxes, and associated errors
 def calc_isotopes_and_fluxes(isotope, isotope_category, isotope_weight, flux, flux_category):
@@ -106,6 +108,7 @@ def calc_isotopes_and_fluxes(isotope, isotope_category, isotope_weight, flux, fl
 
     return isotope_means, isotope_error, flux_totals, flux_error, all_flux, all_flux_se, all_flux_del, all_flux_del_se
 
+
 # Calculate the isotope value and amount of evapotranspiration with associated errors
 def calc_et_values(allp, allq, allp_se, allq_se, allp_del, allq_del, pdel_bar, ptot, pdel_se, allq_del_se, ptot_se):
     et = allp - allq
@@ -129,6 +132,7 @@ def calc_et_values(allp, allq, allp_se, allq_se, allp_del, allq_del, pdel_bar, p
     if math.isnan(et) or math.isnan(et_se) or math.isnan(et_del) or math.isnan(et_del_se):
         raise Exception('NaN outputs')
     return et, et_se, et_del, et_del_se
+
 
 # Create table with results of end-member mixing
 def end_member_mixing(pdel_bar, qdel_bar, pdel_se, qdel_se, ptot, qtot, ptot_se, qtot_se, allq, et):
@@ -154,6 +158,7 @@ def end_member_mixing(pdel_bar, qdel_bar, pdel_se, qdel_se, ptot, qtot, ptot_se,
     f_se[3][1] = f_se[3][0]
     return f, f_se
 
+
 # Create table with results of end-member splitting
 def end_member_splitting(qtot, ptot, f, f_se, qtot_se, ptot_se):
     eta = [[0, 0], [0, 0], [0, 0], [0, 0]]
@@ -170,6 +175,7 @@ def end_member_splitting(qtot, ptot, f, f_se, qtot_se, ptot_se):
         eta_se[3][i] = eta_se[2][i]
     return eta, eta_se
 
+
 def format_tables(f, f_se, eta, eta_se):
     f = pd.DataFrame(f, columns=('f.summer', 'f.winter'))
     f_se = pd.DataFrame(f_se, columns=('f.summer.se', 'f.winter.se'))
@@ -182,6 +188,7 @@ def format_tables(f, f_se, eta, eta_se):
     pd.set_option("display.max_rows", None, "display.max_columns", None)
 
     return table
+
 
 def endsplit(pdel, qdel, pwt, qwt, pdelcat, qdelcat, p, q, pcat, qcat, lys_scaling_et=None, lys_scaling_q=None):
 
@@ -202,6 +209,7 @@ def endsplit(pdel, qdel, pwt, qwt, pdelcat, qdelcat, p, q, pcat, qcat, lys_scali
     qs, qw = qtot[0:2]
     ps, pw = ptot[0:2]
     ps_se, pw_se = ptot_se[0:2]
+    qs_se, qw_se = qtot_se[0:2]
 
     qdel_bar = np.append(qdel_bar, allq_del)
     qdel_se = np.append(qdel_se, allq_del_se)
@@ -218,7 +226,6 @@ def endsplit(pdel, qdel, pwt, qwt, pdelcat, qdelcat, p, q, pcat, qcat, lys_scali
     eta, eta_se = end_member_splitting(qtot, ptot, f, f_se, qtot_se, ptot_se)
 
     table = format_tables(f, f_se, eta, eta_se)
-    return [0, allp, ps, ps_se, pw, pw_se, pdel_s, pdel_w, allq, allq_del, et, qdel_s, qdel_w, qs, qw], table
-
+    return [0, allp, ps, ps_se, pw, pw_se, pdel_s, pdel_w, allq, allq_del, et, qdel_s, qdel_w, qs, qw, et_se, qs_se, qw_se], table
 
 

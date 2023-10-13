@@ -3,6 +3,7 @@ import math
 import copy
 import numpy as np
 
+
 def convert_datetime(dates):
     converted_dates = []
     for i in dates:
@@ -20,6 +21,7 @@ def convert_datetime(dates):
             raise Exception('Date must fit format mm/dd/yy or mm/dd/yyyy')
     return converted_dates
 
+
 def list_years(dates):
     aux_list = []
     years = []
@@ -29,6 +31,8 @@ def list_years(dates):
             aux_list.append(int(year.strftime('%Y')))
     return years
 
+
+# Determine which years are fully sampled with both winter and summer having precipitation and runoff data
 def find_range_sampling(dates, dates_daily, Pdel, P, Qdel, Q, cutoff_month, side=''):
     for i in range(len(dates)):
         if math.isnan(Pdel[i]) or math.isnan(Qdel[i]):
@@ -69,6 +73,7 @@ def find_range_sampling(dates, dates_daily, Pdel, P, Qdel, Q, cutoff_month, side
     else:
         raise Exception("Choose start or end of sampling period")
 
+
 def list_unusable_dates(dates, first_month, first_year, last_month, last_year):
     no_count_date = []
     for i in range(len(dates)):
@@ -80,10 +85,11 @@ def list_unusable_dates(dates, first_month, first_year, last_month, last_year):
             no_count_date.append(dates[i])
     return no_count_date
 
-def split_fluxes_by_hydro_year(dates, years, start_winter, start_summer, no_count_date, precipitation, runoff, temperature):
+
+def split_fluxes_by_hydro_year(dates, years, start_winter, start_summer, no_count_date, precipitation, runoff, temperature, undercatch_type=None):
     flux_data = [[] for _ in years]
     for y in range(len(years)):
-         flux_data[y] = {'year': years[y], 'dates': [], 'P': [], 'Pcat': [], 'Q': [], 'Qcat': [], 'Tcat': []}
+         flux_data[y] = {'year': years[y], 'dates': [], 'P': [], 'Pcat': [], 'Q': [], 'Qcat': [], 'Tcat': [], 'T': []}
     for i in range(len(dates)):
         if dates[i] in no_count_date:
             continue
@@ -96,7 +102,7 @@ def split_fluxes_by_hydro_year(dates, years, start_winter, start_summer, no_coun
             else:
                 flux_data[index]['Pcat'].append("summer")
                 flux_data[index]['Qcat'].append("summer")
-            if temperature[i] <= 0:
+            if temperature[i] <= 2:
                 flux_data[index]['Tcat'].append('snow')
             elif np.isnan(temperature[i]):
                 flux_data[index]['Tcat'].append('unknown')
@@ -115,7 +121,30 @@ def split_fluxes_by_hydro_year(dates, years, start_winter, start_summer, no_coun
         flux_data[index]['dates'].append(dates[i])
         flux_data[index]['P'].append(precipitation[i])
         flux_data[index]['Q'].append(runoff[i])
-    return flux_data
+        flux_data[index]['T'].append(temperature[i])
+    if undercatch_type == None:
+        return flux_data
+    elif undercatch_type == 'rain':
+        for index in range(len(flux_data)):
+            for i in range(len(flux_data[index]['Tcat'])):
+                if flux_data[index]['Tcat'][i] == 'rain':
+                    flux_data[index]['P'][i] = flux_data[index]['P'][i] * 1.15
+        return flux_data
+    elif undercatch_type == 'snow':
+        for index in range(len(flux_data)):
+            for i in range(len(flux_data[index]['Tcat'])):
+                if flux_data[index]['Tcat'][i] == 'snow':
+                    flux_data[index]['P'][i] = flux_data[index]['P'][i] * 1.5
+        return flux_data
+    elif undercatch_type == 'both':
+        for index in range(len(flux_data)):
+            for i in range(len(flux_data[index]['Tcat'])):
+                if flux_data[index]['Tcat'][i] == 'rain':
+                    flux_data[index]['P'][i] = flux_data[index]['P'][i] * 1.15
+                if flux_data[index]['Tcat'][i] == 'snow':
+                    flux_data[index]['P'][i] = flux_data[index]['P'][i] * 1.5
+        return flux_data
+
 
 def split_isotopes_by_hydro_year(dates, intervals, years, no_count_date, precipitation, runoff):
     iso_data = [[] for _ in years]
@@ -164,6 +193,7 @@ def split_isotopes_by_hydro_year(dates, intervals, years, no_count_date, precipi
         iso_data[index]['Qdel_dates'].append(dates[i])
     return iso_data
 
+
 def sum_precipitation_and_runoff(iso_data, fluxes):
     pwt = [[] for _ in fluxes]
     qwt = [[] for _ in fluxes]
@@ -183,6 +213,7 @@ def sum_precipitation_and_runoff(iso_data, fluxes):
                     qwt[i].append(daily_stream)
                 sum_precip = 0
     return pwt, qwt
+
 
 def remove_nan_samples(iso_data_with_nans):
     iso_data = copy.deepcopy(iso_data_with_nans)
@@ -206,7 +237,8 @@ def remove_nan_samples(iso_data_with_nans):
             iso_data[i]['Qdel_dates'].pop(x)
     return iso_data
 
-def preprocessing(dates, precip_isotope, sampling_interval, stream_isotope, dates_daily, p, q, temperature):
+
+def preprocessing(dates, precip_isotope, sampling_interval, stream_isotope, dates_daily, p, q, temperature, undercatch_type=None):
     # List dates by hydrologic year (October to September)
     sampling_dates = convert_datetime(dates)
     date_daily = convert_datetime(dates_daily)
@@ -223,7 +255,7 @@ def preprocessing(dates, precip_isotope, sampling_interval, stream_isotope, date
     no_count_date_daily = list_unusable_dates(date_daily, start_month, first_year, end_month, last_year)
 
     # Organize all data by hydrologic year
-    fluxes = split_fluxes_by_hydro_year(date_daily, years, start_month, start_summer, no_count_date_daily, p, q, temperature)
+    fluxes = split_fluxes_by_hydro_year(date_daily, years, start_month, start_summer, no_count_date_daily, p, q, temperature, undercatch_type)
     iso_data_with_nans = split_isotopes_by_hydro_year(sampling_dates, sampling_interval, years,
                                      no_count_date, precip_isotope, stream_isotope)
     pwt, qwt = sum_precipitation_and_runoff(iso_data_with_nans, fluxes)
