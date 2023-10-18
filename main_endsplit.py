@@ -1,4 +1,4 @@
-from pre_endsplit import preprocessing, convert_datetime
+from pre_endsplit import preprocessing, sum_precip_totals
 from plot_endsplit import diagram_in_out, multi_year_endsplit, plot_del_figure, calc_year_indices, plot_correlations, ols_slope_int
 from bootstrap_endsplit import plot_panels_q, plot_panels_et
 import matplotlib.pyplot as plt
@@ -21,26 +21,6 @@ date_daily = daily_data['date'].to_list()
 precip_mm = daily_data['Sum(Precip_mm)'].tolist()
 temperature = daily_data['Mean(airtemp_C)'].tolist()
 
-# Sum up summer and winter precipitation totals for each year
-dates = convert_datetime(date_daily)
-years_unique = list(set([x.year for x in dates]))
-summer_precip = [0] * len(years_unique)
-winter_precip = [0] * len(years_unique)
-for i in range(len(dates)):
-    year = dates[i].year
-    month = int(dates[i].strftime('%m'))
-    if month < 10:
-        if year - 1 not in years_unique:
-            continue
-        index = years_unique.index(year - 1)
-        if month < 5:
-            winter_precip[index] += precip_mm[i]
-        else:
-            summer_precip[index] += precip_mm[i]
-    else:
-        index = years_unique.index(year)
-        winter_precip[index] += precip_mm[i]
-precip_df = pd.DataFrame({'year': years_unique, 'summer': summer_precip, 'winter': winter_precip})
 
 # EMS with All Rietholzbach discharge data
 stream_isotope = data.loc[:, 'Main_gauge_18O_combined']
@@ -121,8 +101,8 @@ plot_del_figure(q_all, stream_isotope, sampling_dates, date_daily, stream_isotop
 # Figure 1: Longterm Split Diagrams
 longterm_all, lt_table_all = multi_year_endsplit(iso_data_all, fluxes_all, pwt_all, qwt_all, range(len(iso_data_all)))
 longterm_upp, lt_table_upp = multi_year_endsplit(iso_data_upp, fluxes_upp, pwt_upp, qwt_upp, range(len(iso_data_upp)))
-print(lt_table_upp)
 longterm_lys, lt_table_lys = multi_year_endsplit(iso_data_lys, fluxes_lys, pwt_lys, qwt_lys, range(len(iso_data_lys)))
+
 
 fig, axs = plt.subplots(1, 3, figsize=(25, 10))
 diagram_in_out(axs[0], lt_table_all, longterm_all, 'All RHB', Pw_ET_amt=80)
@@ -132,9 +112,11 @@ fig.tight_layout()
 #fig.savefig(r'C:\Users\User\Documents\UNR\Swiss Project\Coding\figures\LongtermSplitDiagrams.svg', dpi=500)
 plt.show()
 
+precip_df = sum_precip_totals(date_daily, precip_mm)
+
 
 # Figure 2: Split Diagrams for Upper RHB
-fig, axs = plt.subplots(2, 2, figsize=(17, 14))
+fig, axs = plt.subplots(2, 2, figsize=(17, 18))
 year_indices = calc_year_indices(precip_df, years_upp, 'summer', '>= median')
 df, table = multi_year_endsplit(iso_data_upp, fluxes_upp, pwt_upp, qwt_upp, year_indices)
 diagram_in_out(axs[0, 0], table, df, 'Wetter Summers', Pw_ET_amt=60, Pw_ET_pct=70, Ps_Qs_amt=-30,
@@ -154,7 +136,7 @@ df, table = multi_year_endsplit(iso_data_upp, fluxes_upp, pwt_upp, qwt_upp, year
 diagram_in_out(axs[1, 1], table, df, 'Drier Winters', Pw_ET_amt=85, Ps_Qs_amt=-30)
 
 fig.tight_layout()
-#fig.savefig(r'C:\Users\User\Documents\UNR\Swiss Project\Coding\figures\UpperRHBSplitDiagrams.svg', dpi=500)
+fig.savefig(r'C:\Users\User\Documents\UNR\Summer2023\Rietholzbach\UpperRHBSplitDiagrams_Oct_to_Sep.svg', dpi=500)
 plt.show()
 
 
@@ -217,11 +199,18 @@ df_upp_q, summer_results_q_upp, winter_results_q_upp = plot_panels_q(iso_data_up
                                                                     'Upper RHB')
 
 
+
 # Figure 4 Bootstrapping Results for ET
 evapotranspiration = pd.read_csv(r'C:\Users\User\Documents\UNR\Swiss Project\Coding\Evapotranspiration_Hirschi.csv')
 df_upp_et, summer_results_et_upp, winter_results_et_upp = plot_panels_et(years_upp, iso_data_upp, fluxes_upp, pwt_upp,
                                                                     qwt_upp, evapotranspiration, X_axis, 'Upper RHB')
 
+df_annual_summ = df_upp_q.loc[:, ('Year', 'Ptot', 'P_s', 'P_w', 'Pdel_s', 'Pdel_w', 'Q', 'Q_s', 'Q_w', 'Qdel', 'Qdel_s', 'Qdel_w', 'ET')]
+df_annual_summ = df_annual_summ.rename(columns={'Q': 'Q_i', 'ET': 'ET_i'})
+df_annual_summ = df_annual_summ.join(df_upp_et['Q'])
+df_annual_summ = df_annual_summ.join(df_upp_et['ET'])
+df_annual_summ = df_annual_summ.rename(columns={'Q': 'Q_adj', 'ET': 'ET_adj'})
+#df_annual_summ.to_csv(r'C:\Users\User\Documents\UNR\Summer2023\Rietholzbach\df_upp_annual_summary.csv')
 
 # Figures S7 and S8
 plot_correlations(df_upp_et, 'P_s', 'Upper RHB')

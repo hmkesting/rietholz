@@ -223,8 +223,8 @@ def calc_year_indices(precip_df, years, season, cutoff):
 def plot_del_figure(q_all, stream_isotope, sampling_dates, date_daily, stream_isotope_upp, lysimeter_seepage,
                     isotope_lysimeter, precip_mm, precip_isotope, interval, iso_data_all, qwt_all, iso_data_upp,
                     qwt_upp, iso_data_lys, qwt_lys):
-    start_summer = 4
-    start_winter = 9
+    start_summer = 5
+    start_winter = 10
     wtd_mean_stream_all, error_stream_all = calc_q(q_all, stream_isotope, sampling_dates, date_daily)
     wtd_mean_stream_upper, error_stream_upper = calc_q(q_all, stream_isotope_upp, sampling_dates, date_daily)
     wtd_mean_stream_lys, error_stream_lys = calc_q(lysimeter_seepage, isotope_lysimeter, sampling_dates, date_daily)
@@ -232,15 +232,21 @@ def plot_del_figure(q_all, stream_isotope, sampling_dates, date_daily, stream_is
         calc_precip(sampling_dates, precip_mm, precip_isotope, interval, start_summer, start_winter)
     wtd_mean_stream = [wtd_mean_stream_all, wtd_mean_stream_upper, wtd_mean_stream_lys]
 
-    stream_label = [np.nan, 'Runoff average']
-    colors = [np.nan, "blue", "green", "orange"]
-    style = [np.nan, "solid", "dashed", "dashed"]
+    stream_label = ['All RHB', 'Lysimeter', 'Upper RHB']
+    colors = ["blue", "orange", "green"]
+    style = ["solid", "dashed", "dashed"]
     date_all = concatenate(iso_data_all, range(len(iso_data_all)), label='Qdel_dates')
+    qdel_all = concatenate(iso_data_all, range(len(iso_data_all)), label='Qdel')
+    qwts_all = concatenate(qwt_all, range(len(iso_data_all)))
     date_upp = concatenate(iso_data_upp, range(len(iso_data_upp)), label='Qdel_dates')
     qdel_upp = concatenate(iso_data_upp, range(len(iso_data_upp)), label='Qdel')
     qwts_upp = concatenate(qwt_upp, range(len(iso_data_upp)))
     date_lys = concatenate(iso_data_lys, range(len(iso_data_lys)), label='Qdel_dates')
+    qdel_lys = concatenate(iso_data_lys, range(len(iso_data_lys)), label='Qdel')
+    qwts_lys = concatenate(qwt_lys, range(len(iso_data_lys)))
+    qdate_all = [to_year_fraction(x) * 11 for x in date_all]
     qdate_upp = [to_year_fraction(x) * 11 for x in date_upp]
+    qdate_lys = [to_year_fraction(x) * 11 for x in date_lys]
 
     s_error_summer_high = wtd_mean_summer + s_error_summer
     s_error_summer_low = wtd_mean_summer - s_error_summer
@@ -248,27 +254,29 @@ def plot_del_figure(q_all, stream_isotope, sampling_dates, date_daily, stream_is
     s_error_winter_low = wtd_mean_winter - s_error_winter
     letters_list = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-    plt.figure(figsize=(7, 3.5))
-    plt.scatter(qdate_upp, qdel_upp, qwts_upp, color='blue', marker='.', label='Runoff measurements')
-    for i in [1]:
+    plt.figure(figsize=(7, 4))
+    plt.scatter(qdate_all, qdel_all, qwts_all, color='green', marker='.', label='All RHB')
+    plt.scatter(qdate_lys, qdel_lys, qwts_lys, color='orange', marker='.', label='Lysimeter')
+    plt.scatter(qdate_upp, qdel_upp, qwts_upp, color='blue', marker='.', label='Upper RHB')
+    for i in range(3):
         plt.plot((0, 11), (wtd_mean_stream[i], wtd_mean_stream[i]), color=colors[i], linewidth=2, linestyle=style[i],
                  label=stream_label[i])
-    plt.plot((start_summer - 0.5, start_winter - 0.5), (wtd_mean_summer, wtd_mean_summer), color='yellow', linewidth=3,
+    plt.plot((start_summer - 1.5, start_winter - 1.5), (wtd_mean_summer, wtd_mean_summer), color='yellow', linewidth=3,
              label='Summer precipitation')
-    plt.plot((start_summer - 0.5, start_winter - 0.5), (s_error_summer_high, s_error_summer_high), color='yellow',
+    plt.plot((start_summer - 1.5, start_winter - 1.5), (s_error_summer_high, s_error_summer_high), color='yellow',
              linewidth=1)
-    plt.plot((start_summer - 0.5, start_winter - 0.5), (s_error_summer_low, s_error_summer_low), color='yellow',
+    plt.plot((start_summer - 1.5, start_winter - 1.5), (s_error_summer_low, s_error_summer_low), color='yellow',
              linewidth=1)
-    plt.plot((0, start_summer - 0.5), (wtd_mean_winter, wtd_mean_winter), color='grey', linewidth=3,
+    plt.plot((0, start_summer - 1.5), (wtd_mean_winter, wtd_mean_winter), color='grey', linewidth=3,
              label='Winter precipitation')
-    plt.plot((0, start_summer - 0.5), (s_error_winter_high, s_error_winter_high), color='grey', linewidth=1)
-    plt.plot((0, start_summer - 0.5), (s_error_winter_low, s_error_winter_low), color='grey', linewidth=1)
-    plt.plot((start_winter - 0.5, 11), (wtd_mean_winter, wtd_mean_winter), color='grey', linewidth=3)
-    plt.plot((start_winter - 0.5, 11), (s_error_winter_high, s_error_winter_high), color='grey', linewidth=1)
-    plt.plot((start_winter - 0.5, 11), (s_error_winter_low, s_error_winter_low), color='grey', linewidth=1)
+    plt.plot((0, start_summer - 1.5), (s_error_winter_high, s_error_winter_high), color='grey', linewidth=1)
+    plt.plot((0, start_summer - 1.5), (s_error_winter_low, s_error_winter_low), color='grey', linewidth=1)
+    plt.plot((start_winter - 1.5, 11), (wtd_mean_winter, wtd_mean_winter), color='grey', linewidth=3)
+    plt.plot((start_winter - 1.5, 11), (s_error_winter_high, s_error_winter_high), color='grey', linewidth=1)
+    plt.plot((start_winter - 1.5, 11), (s_error_winter_low, s_error_winter_low), color='grey', linewidth=1)
     plt.errorbar(letters_list, wtd_mean_per_month, yerr=s_error_per_month, fmt='.', color='black',
                  label='Monthly precipitation averages')
-    plt.legend(ncol=2, bbox_to_anchor=(1.0, -0.22))
+    plt.legend(ncol=3, bbox_to_anchor=(1.0, -0.22))
     #plt.title('Weighted δ$^{18}$O Values of Precipitation and Runoff')
     plt.xlabel('Month')
     plt.ylabel('δ$^{18}$O (‰)')
